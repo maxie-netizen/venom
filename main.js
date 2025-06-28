@@ -41,7 +41,7 @@ const {  state, saveCreds } =await useMultiFileAuthState(`./session`)
     const XeonBotInc = makeWASocket({
         logger: pino({ level: 'silent' }),
         printQRInTerminal: !pairingCode, // popping up QR in terminal log
-      browser: Browsers.windows('Firefox'), // for this issues https://github.com/WhiskeySockets/Baileys/issues/328
+      browser: ["Ubuntu", "Chrome", "110.0.0"] // for this issues https://github.com/WhiskeySockets/Baileys/issues/328
      auth: {
          creds: state.creds,
          keys: makeCacheableSignalKeyStore(state.keys, Pino({ level: "fatal" }).child({ level: "fatal" })),
@@ -66,7 +66,7 @@ const {  state, saveCreds } =await useMultiFileAuthState(`./session`)
       if (useMobile) throw new Error('Cannot use pairing code with mobile api')
 
       let phoneNumber
-      if (!!phoneNumber) {
+      if (phoneNumber) {
          phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
 
          if (!Object.keys(PHONENUMBER_MCC).some(v => phoneNumber.startsWith(v))) {
@@ -88,13 +88,24 @@ const {  state, saveCreds } =await useMultiFileAuthState(`./session`)
       }
 
       setTimeout(async () => {
-         let code = await XeonBotInc.requestPairingCode(phoneNumber)
-         code = code?.match(/.{1,4}/g)?.join("-") || code
-         console.log(chalk.black(chalk.bgGreen(`Your Pairing Code : `)), chalk.black(chalk.white(code)))
-      }, 3000)
-   }
+  try {
+    let code = await XeonBotInc.requestPairingCode(phoneNumber)
+    code = code?.match(/.{1,4}/g)?.join("-") || code
+    console.log(chalk.black(chalk.bgGreen(`Your Pairing Code: ${code}`)))
+  } catch (error) {
+    console.error("Pairing failed:", error)
+    process.exit(1)
+  }
+}, 3000)
 
-    XeonBotInc.ev.on('messages.upsert', async chatUpdate => {
+    XeonBotInc.ev.on('connection.update', (update) => {
+  if (update.qr) {
+    console.log("Scan QR code:", update.qr)
+  }
+  if (update.connection === "close") {
+    console.log("Connection closed:", update.lastDisconnect?.error)
+  }
+})
         //console.log(JSON.stringify(chatUpdate, undefined, 2))
         try {
             const mek = chatUpdate.messages[0]
